@@ -1,0 +1,948 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Webflow Asset Manager | Rethink JS</title>
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            fontFamily: {
+              sans: ["Inter", "sans-serif"],
+              mono: ["JetBrains Mono", "monospace"],
+            },
+            colors: {
+              slate: {
+                850: "#151e2e",
+                900: "#0f172a",
+                950: "#020617",
+              },
+              brand: {
+                DEFAULT: "#FFD632",
+                dim: "#b39005",
+                glow: "rgba(255, 214, 50, 0.15)",
+              },
+            },
+            animation: {
+              "pulse-fast": "pulse 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite",
+            },
+          },
+        },
+      };
+    </script>
+
+    <!-- SparkMD5 for File Hashing -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/spark-md5/3.0.2/spark-md5.min.js"></script>
+
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <style>
+      body {
+        background-color: #020617;
+        color: #e2e8f0;
+      }
+
+      .canvas-bg {
+        background-color: #0f172a;
+      }
+
+      /* Custom Scrollbar */
+      ::-webkit-scrollbar {
+        width: 8px;
+      }
+      ::-webkit-scrollbar-track {
+        background: #0f172a;
+      }
+      ::-webkit-scrollbar-thumb {
+        background: #334155;
+        border-radius: 4px;
+      }
+      ::-webkit-scrollbar-thumb:hover {
+        background: #475569;
+      }
+
+      .glass-header {
+        background: rgba(2, 6, 23, 0.7);
+        backdrop-filter: blur(12px);
+        border-bottom: 1px solid #1e293b;
+      }
+
+      /* Radio Visual Logic */
+      .radio-input:checked + .radio-content {
+        border-color: #ffd632;
+        color: #ffd632;
+        background-color: rgba(255, 214, 50, 0.05);
+      }
+      .radio-input:checked + .radio-content .radio-dot {
+        display: block;
+      }
+      .radio-input:checked + .radio-content .text-slate-400 {
+        color: #ffd632;
+      }
+    </style>
+  </head>
+  <body
+    class="min-h-screen flex flex-col selection:bg-brand selection:text-slate-950"
+  >
+    <!-- Header -->
+    <header class="glass-header sticky top-0 z-50">
+      <div
+        class="max-w-3xl mx-auto px-6 py-4 flex items-center justify-between"
+      >
+        <div class="flex items-center gap-3">
+          <img
+            src="https://avatars.githubusercontent.com/u/245584241?s=256"
+            alt="Logo"
+            class="w-8 h-8 rounded-lg border border-slate-700"
+          />
+          <h1 class="font-semibold text-slate-100 tracking-tight">
+            Webflow
+            <span class="text-slate-500 font-normal ml-1">Assets Manager</span>
+          </h1>
+        </div>
+
+        <!-- Connection Status Badge -->
+        <div
+          id="status-badge"
+          class="flex items-center gap-2 px-3 py-1 rounded text-xs font-mono font-medium border uppercase tracking-wider bg-slate-800 text-slate-500 border-slate-700 transition-colors duration-300"
+        >
+          <i data-lucide="wifi-off" class="w-3 h-3"></i>
+          <span id="status-text">Step 1: Auth</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="flex-grow canvas-bg p-4 md:p-8 relative">
+      <div class="max-w-2xl mx-auto space-y-12 pb-48">
+        <!-- STEP 1: Credentials -->
+        <div
+          id="step-1"
+          class="rounded-xl border border-slate-800 overflow-hidden shadow-xl bg-slate-900 transition-all duration-700 ease-in-out"
+        >
+          <div
+            class="bg-slate-850 border-b border-slate-800 px-6 py-4 flex items-center justify-between"
+          >
+            <div class="flex items-center gap-2">
+              <div
+                class="w-6 h-6 rounded-full bg-slate-700 text-slate-300 flex items-center justify-center text-xs font-bold font-mono"
+              >
+                1
+              </div>
+              <h2
+                class="text-sm font-bold uppercase tracking-wider text-slate-300"
+              >
+                Connect Webflow
+              </h2>
+            </div>
+            <button
+              id="edit-step-1"
+              class="hidden text-xs text-brand hover:underline"
+            >
+              Edit
+            </button>
+          </div>
+
+          <div class="p-6 space-y-6">
+            <div class="grid grid-cols-1 gap-4">
+              <div class="space-y-2">
+                <label
+                  class="block text-xs font-medium text-slate-400 uppercase tracking-wide"
+                >
+                  Site ID <span class="text-slate-600">(Project ID)</span>
+                </label>
+                <input
+                  type="text"
+                  id="site-id"
+                  placeholder="e.g. 64a...12b"
+                  class="w-full bg-slate-950 border border-slate-800 rounded-lg px-4 py-3 text-slate-200 focus:outline-none focus:border-brand/70 focus:ring-1 focus:ring-brand/70 transition-all font-mono text-sm placeholder:text-slate-700"
+                />
+              </div>
+              <div class="space-y-2">
+                <label
+                  class="block text-xs font-medium text-slate-400 uppercase tracking-wide"
+                >
+                  API Token <span class="text-slate-600">(v2)</span>
+                </label>
+                <input
+                  type="password"
+                  id="api-token"
+                  placeholder="Required scope: assets:write"
+                  class="w-full bg-slate-950 border border-slate-800 rounded-lg px-4 py-3 text-slate-200 focus:outline-none focus:border-brand/70 focus:ring-1 focus:ring-brand/70 transition-all font-mono text-sm placeholder:text-slate-700"
+                />
+              </div>
+            </div>
+
+            <!-- CORS Error Box (Inside Step 1) -->
+            <div
+              id="cors-error-box"
+              class="hidden bg-red-500/10 border border-red-500/20 rounded-lg p-4 animate-in fade-in zoom-in-95 duration-300"
+            >
+              <div class="flex items-start gap-3">
+                <i
+                  data-lucide="shield-alert"
+                  class="w-5 h-5 text-red-500 mt-0.5"
+                ></i>
+                <div>
+                  <h3 class="text-red-500 font-semibold text-xs">
+                    Connection Failed (CORS)
+                  </h3>
+                  <p class="text-red-500/70 text-xs mt-1 leading-relaxed">
+                    Webflow blocks browser requests. You likely need the
+                    "Anti-CORS" extension.
+                  </p>
+                  <div class="mt-3 flex gap-2">
+                    <a
+                      href="https://chromewebstore.google.com/detail/anti-cors-anti-csp/fcbmpcbjjphnaohicmhefjihollidgkp"
+                      target="_blank"
+                      class="text-xs text-slate-300 underline hover:text-white"
+                      >Get Extension</a
+                    >
+                    <button
+                      id="force-enable-btn"
+                      class="text-xs text-brand underline hover:text-brand/80 ml-auto"
+                    >
+                      Try Anyway
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="pt-2">
+              <button
+                id="connect-btn"
+                class="w-full bg-slate-800 hover:bg-brand hover:text-slate-950 text-slate-300 font-bold py-3 px-4 rounded-lg transition-all flex items-center justify-center gap-2"
+              >
+                <span>Connect & Continue</span>
+                <i data-lucide="arrow-right" class="w-4 h-4"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- STEP 2: Destination -->
+        <div
+          id="step-2"
+          class="rounded-xl border border-slate-800 overflow-hidden shadow-xl bg-slate-900 transition-all duration-700 ease-in-out opacity-50 pointer-events-none filter blur-[1px]"
+        >
+          <div
+            class="bg-slate-850 border-b border-slate-800 px-6 py-4 flex items-center justify-between"
+          >
+            <div class="flex items-center gap-2">
+              <div
+                class="w-6 h-6 rounded-full bg-slate-700 text-slate-300 flex items-center justify-center text-xs font-bold font-mono"
+              >
+                2
+              </div>
+              <h2
+                class="text-sm font-bold uppercase tracking-wider text-slate-300"
+              >
+                Select Destination
+              </h2>
+            </div>
+          </div>
+
+          <div class="p-6 space-y-6">
+            <!-- Folder List -->
+            <div class="space-y-3" id="folder-list-container">
+              <div class="text-center py-8 text-slate-500">
+                <i
+                  data-lucide="loader-2"
+                  class="w-6 h-6 animate-pulse mx-auto mb-2"
+                ></i>
+                <p class="text-xs font-mono">Fetching folders...</p>
+              </div>
+            </div>
+
+            <!-- Create New -->
+            <div class="border-t border-slate-800 pt-4 mt-4">
+              <label
+                class="flex items-center gap-3 p-3 rounded-lg border border-slate-800 bg-slate-850 cursor-pointer transition-all hover:border-slate-600 group"
+              >
+                <input
+                  type="radio"
+                  name="folder-selection"
+                  value="create_new"
+                  class="radio-input hidden"
+                  id="radio-create"
+                />
+                <div
+                  class="radio-content w-full flex items-center gap-3 p-3 rounded-lg border border-transparent transition-all"
+                >
+                  <div
+                    class="w-4 h-4 rounded-full border border-slate-600 flex items-center justify-center group-hover:border-slate-400"
+                  >
+                    <div
+                      class="w-2 h-2 rounded-full bg-brand hidden radio-dot"
+                    ></div>
+                  </div>
+                  <i
+                    data-lucide="folder-plus"
+                    class="w-5 h-5 text-slate-400"
+                  ></i>
+                  <span class="text-sm font-medium text-slate-300"
+                    >Create New Folder</span
+                  >
+                </div>
+              </label>
+
+              <div
+                id="create-folder-input-container"
+                class="hidden mt-3 pl-4 border-l-2 border-slate-800 ml-4 transition-all"
+              >
+                <div class="flex gap-2">
+                  <input
+                    type="text"
+                    id="new-folder-name"
+                    placeholder="Enter folder name..."
+                    class="w-full bg-slate-950 border border-slate-800 rounded-lg px-4 py-3 text-slate-200 focus:outline-none focus:border-brand/70 focus:ring-1 focus:ring-brand/70 transition-all font-mono text-sm placeholder:text-slate-700"
+                  />
+                  <button
+                    id="create-folder-btn"
+                    class="bg-slate-800 hover:bg-slate-700 text-brand px-4 rounded-lg border border-slate-700"
+                  >
+                    <i data-lucide="plus" class="w-4 h-4"></i>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div class="pt-2">
+              <button
+                id="confirm-dest-btn"
+                class="w-full bg-slate-800 hover:bg-brand hover:text-slate-950 text-slate-300 font-bold py-3 px-4 rounded-lg transition-all flex items-center justify-center gap-2"
+                disabled
+              >
+                <span>Confirm Destination</span>
+                <i data-lucide="arrow-down" class="w-4 h-4"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- STEP 3: Upload -->
+        <div
+          id="step-3"
+          class="rounded-xl border border-slate-800 overflow-hidden shadow-xl bg-slate-900 transition-all duration-700 ease-in-out opacity-50 pointer-events-none filter blur-[1px]"
+        >
+          <div
+            class="bg-slate-850 border-b border-slate-800 px-6 py-4 flex items-center gap-2"
+          >
+            <div
+              class="w-6 h-6 rounded-full bg-slate-700 text-slate-300 flex items-center justify-center text-xs font-bold font-mono"
+            >
+              3
+            </div>
+            <h2
+              class="text-sm font-bold uppercase tracking-wider text-slate-300"
+            >
+              Upload Assets
+            </h2>
+          </div>
+
+          <div class="p-6 space-y-6">
+            <!-- Dropzone -->
+            <div
+              id="dropzone"
+              class="relative group border-2 border-dashed border-slate-700 bg-slate-900/40 rounded-2xl p-12 text-center transition-all duration-300 cursor-pointer hover:border-brand hover:bg-slate-900/60 hover:shadow-[0_0_20px_-5px_rgba(255,214,50,0.1)]"
+            >
+              <input
+                type="file"
+                id="file-input"
+                multiple
+                class="absolute inset-0 opacity-0 cursor-pointer z-10"
+              />
+
+              <div
+                class="w-16 h-16 rounded-full bg-brand/10 text-brand flex items-center justify-center mx-auto transition-transform duration-300 group-hover:scale-110 mb-4"
+              >
+                <i data-lucide="upload" class="w-7 h-7"></i>
+              </div>
+
+              <div class="pointer-events-none space-y-2">
+                <h3
+                  class="text-lg font-medium text-slate-200 group-hover:text-brand transition-colors"
+                >
+                  Drop files here
+                </h3>
+                <p class="text-xs text-slate-500 font-mono" id="dest-label">
+                  Destination: Root
+                </p>
+              </div>
+            </div>
+
+            <!-- File List -->
+            <div id="file-list-container" class="space-y-4 hidden">
+              <div class="flex items-center gap-2 px-1">
+                <i data-lucide="terminal" class="w-3 h-3 text-slate-500"></i>
+                <h3
+                  class="text-xs font-bold text-slate-500 uppercase tracking-widest"
+                >
+                  Operation Log
+                </h3>
+              </div>
+              <div id="file-list" class="space-y-4"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="flex justify-center pb-8">
+          <div
+            class="inline-flex items-center gap-2 bg-slate-900/50 border border-slate-800 rounded-full px-4 py-1.5 shadow-sm backdrop-blur-sm"
+          >
+            <i data-lucide="lock" class="w-3 h-3 text-green-500"></i>
+            <span class="text-xs text-slate-400 font-medium"
+              >100% Client-Side & Secure</span
+            >
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <script>
+      // --- Icons ---
+      lucide.createIcons();
+
+      // --- State Management ---
+      const state = {
+        token: localStorage.getItem("wf_token") || "",
+        siteId: localStorage.getItem("wf_site_id") || "",
+        folderId: "", // '' for root
+        folderName: "Root Directory",
+        currentStep: 1,
+        folders: [],
+        files: [],
+      };
+
+      // --- DOM Elements ---
+      const els = {
+        // Steps
+        step1: document.getElementById("step-1"),
+        step2: document.getElementById("step-2"),
+        step3: document.getElementById("step-3"),
+
+        // Step 1
+        siteId: document.getElementById("site-id"),
+        token: document.getElementById("api-token"),
+        connectBtn: document.getElementById("connect-btn"),
+        corsBox: document.getElementById("cors-error-box"),
+        forceBtn: document.getElementById("force-enable-btn"),
+        editStep1: document.getElementById("edit-step-1"),
+
+        // Step 2
+        folderListContainer: document.getElementById("folder-list-container"),
+        radioCreate: document.getElementById("radio-create"),
+        createInputContainer: document.getElementById(
+          "create-folder-input-container"
+        ),
+        newFolderName: document.getElementById("new-folder-name"),
+        createFolderBtn: document.getElementById("create-folder-btn"),
+        confirmDestBtn: document.getElementById("confirm-dest-btn"),
+
+        // Step 3
+        dropzone: document.getElementById("dropzone"),
+        fileInput: document.getElementById("file-input"),
+        destLabel: document.getElementById("dest-label"),
+        fileListContainer: document.getElementById("file-list-container"),
+        fileList: document.getElementById("file-list"),
+
+        // Global
+        statusBadge: document.getElementById("status-badge"),
+        statusText: document.getElementById("status-text"),
+      };
+
+      // --- Init ---
+      els.siteId.value = state.siteId;
+      els.token.value = state.token;
+
+      // --- Event Listeners ---
+      els.connectBtn.addEventListener("click", handleConnect);
+      els.forceBtn.addEventListener("click", () => {
+        els.corsBox.classList.add("hidden");
+        goToStep2(true); // Force bypass
+      });
+      els.editStep1.addEventListener("click", () => activateStep(1));
+
+      els.confirmDestBtn.addEventListener("click", goToStep3);
+
+      els.createFolderBtn.addEventListener("click", handleCreateFolder);
+
+      // File handling
+      els.dropzone.addEventListener("dragover", (e) => {
+        e.preventDefault();
+        els.dropzone.classList.add("border-brand", "bg-slate-900/60");
+        els.dropzone.classList.remove("border-slate-700", "bg-slate-900/40");
+      });
+      els.dropzone.addEventListener("dragleave", () => {
+        els.dropzone.classList.remove("border-brand", "bg-slate-900/60");
+        els.dropzone.classList.add("border-slate-700", "bg-slate-900/40");
+      });
+      els.dropzone.addEventListener("drop", (e) => {
+        e.preventDefault();
+        els.dropzone.classList.remove("border-brand", "bg-slate-900/60");
+        els.dropzone.classList.add("border-slate-700", "bg-slate-900/40");
+        handleFiles(e.dataTransfer.files);
+      });
+      els.fileInput.addEventListener("change", (e) =>
+        handleFiles(e.target.files)
+      );
+
+      // Folder Radio Logic delegation
+      els.step2.addEventListener("change", (e) => {
+        if (e.target.name === "folder-selection") {
+          if (e.target.value === "create_new") {
+            els.createInputContainer.classList.remove("hidden");
+            state.folderId = null; // Wait for creation
+            els.confirmDestBtn.disabled = true;
+          } else {
+            els.createInputContainer.classList.add("hidden");
+            state.folderId = e.target.value;
+            state.folderName = e.target.dataset.name || "Root Directory";
+            els.confirmDestBtn.disabled = false;
+          }
+        }
+      });
+
+      // --- Logic: Flow Control ---
+
+      function activateStep(stepNum) {
+        state.currentStep = stepNum;
+
+        // Reset visual states
+        [els.step1, els.step2, els.step3].forEach((el, idx) => {
+          const current = idx + 1;
+          if (current === stepNum) {
+            el.classList.remove(
+              "opacity-50",
+              "pointer-events-none",
+              "filter",
+              "blur-[1px]"
+            );
+            el.classList.add("opacity-100", "pointer-events-auto");
+            // Scroll to center
+            setTimeout(
+              () => el.scrollIntoView({ behavior: "smooth", block: "center" }),
+              100
+            );
+          } else if (current < stepNum) {
+            // Previous steps dimmed
+            el.classList.add("opacity-50", "pointer-events-none");
+            el.classList.remove("filter", "blur-[1px]"); // Remove blur so we can read it
+          } else {
+            // Future steps dimmed + blurred
+            el.classList.add(
+              "opacity-50",
+              "pointer-events-none",
+              "filter",
+              "blur-[1px]"
+            );
+          }
+        });
+
+        // Update Header Status
+        if (stepNum === 1) updateStatus("Step 1: Auth", "text-slate-500");
+        if (stepNum === 2) updateStatus("Step 2: Dest", "text-brand");
+        if (stepNum === 3)
+          updateStatus("System Online", "text-green-500", "wifi");
+      }
+
+      async function handleConnect() {
+        const id = els.siteId.value.trim();
+        const key = els.token.value.trim();
+
+        if (!id || !key) {
+          alert("Please enter both Site ID and Token");
+          return;
+        }
+
+        state.siteId = id;
+        state.token = key;
+        localStorage.setItem("wf_site_id", id);
+        localStorage.setItem("wf_token", key);
+
+        const btnText = els.connectBtn.querySelector("span");
+        const icon = els.connectBtn.querySelector("svg");
+
+        btnText.textContent = "Connecting...";
+        // Animation Update: Pulse instead of spin
+        icon.classList.add("animate-pulse");
+
+        try {
+          const res = await fetch(`https://api.webflow.com/v2/sites/${id}`, {
+            headers: {
+              Authorization: `Bearer ${key}`,
+              "Accept-Version": "2.0.0",
+            },
+          });
+
+          if (res.ok) {
+            els.corsBox.classList.add("hidden");
+            goToStep2();
+          } else {
+            throw new Error("Auth failed");
+          }
+        } catch (err) {
+          console.error(err);
+          if (err.name === "TypeError") {
+            // CORS
+            els.corsBox.classList.remove("hidden");
+          } else {
+            alert("Authentication failed. Check your ID and Token.");
+          }
+        } finally {
+          btnText.textContent = "Connect & Continue";
+          icon.classList.remove("animate-pulse");
+        }
+      }
+
+      async function goToStep2(force = false) {
+        activateStep(2);
+        els.editStep1.classList.remove("hidden");
+
+        // Fetch Folders
+        // Animation Update: Pulse instead of spin
+        els.folderListContainer.innerHTML = `
+                <div class="text-center py-8 text-slate-500">
+                    <i data-lucide="loader-2" class="w-6 h-6 animate-pulse mx-auto mb-2"></i>
+                    <p class="text-xs font-mono">Fetching folders...</p>
+                </div>
+            `;
+        lucide.createIcons();
+
+        try {
+          const res = await fetch(
+            `https://api.webflow.com/v2/sites/${state.siteId}/asset_folders`,
+            {
+              headers: {
+                Authorization: `Bearer ${state.token}`,
+                "Accept-Version": "2.0.0",
+              },
+            }
+          );
+
+          let html = `
+                    <label class="flex items-center gap-3 p-3 rounded-lg border border-slate-800 bg-slate-850 cursor-pointer transition-all hover:border-slate-600 group">
+                        <input type="radio" name="folder-selection" value="" class="radio-input hidden" checked data-name="Root Directory">
+                        <div class="radio-content w-full flex items-center gap-3 p-3 rounded-lg border border-transparent transition-all">
+                            <div class="w-4 h-4 rounded-full border border-slate-600 flex items-center justify-center group-hover:border-slate-400">
+                                <div class="w-2 h-2 rounded-full bg-brand hidden radio-dot"></div>
+                            </div>
+                            <i data-lucide="hard-drive" class="w-5 h-5 text-slate-400"></i>
+                            <span class="text-sm font-medium text-slate-300">Root Directory</span>
+                        </div>
+                    </label>
+                `;
+
+          if (res.ok) {
+            const data = await res.json();
+            const folders = data.assetFolders || data; // Handle possible wrapper or array
+
+            if (Array.isArray(folders)) {
+              folders.forEach((f) => {
+                html += `
+                                <label class="flex items-center gap-3 p-3 rounded-lg border border-slate-800 bg-slate-850 cursor-pointer transition-all hover:border-slate-600 group">
+                                    <input type="radio" name="folder-selection" value="${f.id}" class="radio-input hidden" data-name="${f.displayName}">
+                                    <div class="radio-content w-full flex items-center gap-3 p-3 rounded-lg border border-transparent transition-all">
+                                        <div class="w-4 h-4 rounded-full border border-slate-600 flex items-center justify-center group-hover:border-slate-400">
+                                            <div class="w-2 h-2 rounded-full bg-brand hidden radio-dot"></div>
+                                        </div>
+                                        <i data-lucide="folder" class="w-5 h-5 text-slate-400"></i>
+                                        <span class="text-sm font-medium text-slate-300">${f.displayName}</span>
+                                    </div>
+                                </label>
+                            `;
+              });
+            }
+          }
+
+          els.folderListContainer.innerHTML = html;
+          state.folderId = ""; // Default to root
+          els.confirmDestBtn.disabled = false;
+        } catch (err) {
+          console.error(err);
+          els.folderListContainer.innerHTML = `<p class="text-red-500 text-xs">Failed to load folders. (Check CORS/Auth)</p>`;
+          // Allow continuing to root anyway if it was a fetch error
+          state.folderId = "";
+          els.confirmDestBtn.disabled = false;
+        }
+        lucide.createIcons();
+      }
+
+      async function handleCreateFolder() {
+        const name = els.newFolderName.value.trim();
+        if (!name) return;
+
+        els.createFolderBtn.disabled = true;
+        // Animation Update: Pulse instead of spin
+        els.createFolderBtn.innerHTML = `<i data-lucide="loader-2" class="w-4 h-4 animate-pulse"></i>`;
+        lucide.createIcons();
+
+        try {
+          const res = await fetch(
+            `https://api.webflow.com/v2/sites/${state.siteId}/asset_folders`,
+            {
+              method: "POST",
+              headers: {
+                Authorization: `Bearer ${state.token}`,
+                "Content-Type": "application/json",
+                "Accept-Version": "2.0.0",
+              },
+              body: JSON.stringify({ displayName: name }),
+            }
+          );
+
+          if (res.ok) {
+            const data = await res.json();
+
+            // 1. Create HTML for new folder
+            const newFolderHTML = `
+                        <label class="flex items-center gap-3 p-3 rounded-lg border border-slate-800 bg-slate-850 cursor-pointer transition-all hover:border-slate-600 group">
+                            <input type="radio" name="folder-selection" value="${data.id}" class="radio-input hidden" data-name="${data.displayName}">
+                            <div class="radio-content w-full flex items-center gap-3 p-3 rounded-lg border border-transparent transition-all">
+                                <div class="w-4 h-4 rounded-full border border-slate-600 flex items-center justify-center group-hover:border-slate-400">
+                                    <div class="w-2 h-2 rounded-full bg-brand hidden radio-dot"></div>
+                                </div>
+                                <i data-lucide="folder" class="w-5 h-5 text-slate-400"></i>
+                                <span class="text-sm font-medium text-slate-300">${data.displayName}</span>
+                            </div>
+                        </label>
+                    `;
+
+            // 2. Add to list DOM
+            els.folderListContainer.insertAdjacentHTML(
+              "beforeend",
+              newFolderHTML
+            );
+            lucide.createIcons();
+
+            // 3. Select the new radio button & trigger change event to update state/UI
+            const newRadio = els.folderListContainer.querySelector(
+              `input[value="${data.id}"]`
+            );
+            if (newRadio) {
+              newRadio.checked = true;
+              // Dispatch change to trigger the listener on step2 (handles hiding input & updating state)
+              newRadio.dispatchEvent(new Event("change", { bubbles: true }));
+            }
+
+            // 4. Clear input
+            els.newFolderName.value = "";
+          } else {
+            alert("Failed to create folder");
+          }
+        } catch (e) {
+          console.error(e);
+          alert("Error creating folder");
+        } finally {
+          els.createFolderBtn.disabled = false;
+          els.createFolderBtn.innerHTML = `<i data-lucide="plus" class="w-4 h-4"></i>`;
+          lucide.createIcons();
+        }
+      }
+
+      function goToStep3() {
+        activateStep(3);
+        els.destLabel.innerHTML = `Destination: <span class="text-brand font-bold">${state.folderName}</span>`;
+      }
+
+      // --- Logic: Upload ---
+      async function handleFiles(fileList) {
+        if (!fileList || fileList.length === 0) return;
+        els.fileListContainer.classList.remove("hidden");
+
+        Array.from(fileList).forEach((file) => {
+          const fileObj = {
+            id: Math.random().toString(36).substr(2, 9),
+            file: file,
+            status: "pending",
+            progress: 0,
+          };
+          renderFileItem(fileObj);
+          processFile(fileObj);
+        });
+      }
+
+      async function processFile(fileObj) {
+        // Client-side validation
+        const MAX_SIZE = 10 * 1024 * 1024; // 10MB
+        if (fileObj.file.size > MAX_SIZE) {
+          updateFileUI(fileObj.id, "error", 0, "File too large (>10MB)");
+          return;
+        }
+
+        updateFileUI(fileObj.id, "hashing", 10);
+        try {
+          const hash = await calculateMD5(fileObj.file);
+          updateFileUI(fileObj.id, "requesting", 40);
+
+          const payload = { fileName: fileObj.file.name, fileHash: hash };
+          if (state.folderId) payload.parentFolder = state.folderId;
+
+          const res = await fetch(
+            `https://api.webflow.com/v2/sites/${state.siteId}/assets`,
+            {
+              method: "POST",
+              headers: {
+                Authorization: `Bearer ${state.token}`,
+                "Content-Type": "application/json",
+                "Accept-Version": "2.0.0",
+              },
+              body: JSON.stringify(payload),
+            }
+          );
+
+          if (!res.ok) {
+            const errorData = await res.json().catch(() => ({}));
+            throw new Error(errorData.message || `API Error: ${res.status}`);
+          }
+          const data = await res.json();
+
+          updateFileUI(fileObj.id, "uploading", 70);
+          const formData = new FormData();
+          Object.keys(data.uploadDetails).forEach((key) =>
+            formData.append(key, data.uploadDetails[key])
+          );
+          formData.append("file", fileObj.file);
+
+          const s3Res = await fetch(data.uploadUrl, {
+            method: "POST",
+            body: formData,
+          });
+          if (!s3Res.ok) throw new Error("S3 Error");
+
+          updateFileUI(fileObj.id, "success", 100, data.hostedUrl);
+        } catch (err) {
+          console.error(err);
+          updateFileUI(
+            fileObj.id,
+            "error",
+            0,
+            err.name === "TypeError" ? "CORS Blocked" : err.message
+          );
+        }
+      }
+
+      function calculateMD5(file) {
+        return new Promise((resolve, reject) => {
+          const blobSlice =
+            File.prototype.slice ||
+            File.prototype.mozSlice ||
+            File.prototype.webkitSlice;
+          const chunkSize = 2097152;
+          const chunks = Math.ceil(file.size / chunkSize);
+          let currentChunk = 0;
+          const spark = new SparkMD5.ArrayBuffer();
+          const fileReader = new FileReader();
+          fileReader.onload = function (e) {
+            spark.append(e.target.result);
+            currentChunk++;
+            if (currentChunk < chunks) loadNext();
+            else resolve(spark.end());
+          };
+          fileReader.onerror = () => reject("Hashing Failed");
+          function loadNext() {
+            const start = currentChunk * chunkSize;
+            const end =
+              start + chunkSize >= file.size ? file.size : start + chunkSize;
+            fileReader.readAsArrayBuffer(blobSlice.call(file, start, end));
+          }
+          loadNext();
+        });
+      }
+
+      // --- Helpers ---
+      function updateStatus(text, colorClass, iconName = "wifi-off") {
+        els.statusText.textContent = text;
+        els.statusBadge.className = `flex items-center gap-2 px-3 py-1 rounded text-xs font-mono font-medium border uppercase tracking-wider transition-colors duration-300 ${colorClass.replace(
+          "text-",
+          "bg-"
+        )}/10 ${colorClass} ${colorClass.replace("text-", "border-")}/20`;
+        const icon = els.statusBadge.querySelector("svg");
+        els.statusBadge.innerHTML = `<i data-lucide="${iconName}" class="w-3 h-3"></i><span id="status-text">${text}</span>`;
+        lucide.createIcons();
+      }
+
+      function renderFileItem(fileObj) {
+        const div = document.createElement("div");
+        div.id = `file-${fileObj.id}`;
+        div.className =
+          "bg-slate-900 rounded-xl border border-slate-800 overflow-hidden shadow-xl animate-in fade-in slide-in-from-bottom-2";
+        div.innerHTML = `
+                <div class="p-4 flex items-center gap-4">
+                    <div class="w-10 h-10 flex-shrink-0 bg-slate-950 rounded-lg flex items-center justify-center overflow-hidden border border-slate-700">
+                        <i data-lucide="file" class="text-slate-500 w-5 h-5"></i>
+                    </div>
+                    <div class="flex-grow min-w-0">
+                        <div class="flex items-center justify-between">
+                            <p class="font-medium text-slate-200 truncate text-xs font-mono" title="${
+                              fileObj.file.name
+                            }">${fileObj.file.name}</p>
+                            <span class="text-[10px] font-mono text-slate-500 ml-2">${(
+                              fileObj.file.size / 1024
+                            ).toFixed(0)} KB</span>
+                        </div>
+                        <div class="mt-2 w-full bg-slate-800 rounded-full h-1 overflow-hidden">
+                            <div id="bar-${
+                              fileObj.id
+                            }" class="bg-brand h-full transition-all duration-300" style="width: 0%"></div>
+                        </div>
+                        <p id="status-${
+                          fileObj.id
+                        }" class="text-[10px] text-brand mt-1 uppercase tracking-wide font-bold animate-pulse">PENDING...</p>
+                    </div>
+                </div>
+            `;
+        els.fileList.prepend(div);
+        lucide.createIcons();
+      }
+
+      function updateFileUI(id, status, progress, extra) {
+        const el = document.getElementById(`file-${id}`);
+        if (!el) return;
+        const bar = document.getElementById(`bar-${id}`);
+        const statusText = document.getElementById(`status-${id}`);
+
+        if (bar) bar.style.width = `${progress}%`;
+        if (statusText) statusText.textContent = `${status}...`;
+
+        if (status === "success") {
+          statusText.remove();
+          // Add result UI
+          const resultDiv = document.createElement("div");
+          resultDiv.className = "mt-2 flex items-center gap-2";
+          resultDiv.innerHTML = `
+                     <input type="text" value="${extra}" readonly 
+                        class="flex-grow bg-slate-950 border border-slate-800 rounded px-2 py-1 text-[10px] font-mono text-brand focus:outline-none focus:border-brand/50 transition-colors cursor-text" 
+                        onclick="this.select();"
+                     >
+                     <button onclick="navigator.clipboard.writeText('${extra}'); this.classList.add('text-green-500'); setTimeout(()=>this.classList.remove('text-green-500'), 1000);" 
+                        class="p-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded text-slate-400 hover:text-brand transition-colors" title="Copy">
+                        <i data-lucide="copy" class="w-3 h-3"></i>
+                     </button>
+                `;
+          el.querySelector(".flex-grow").appendChild(resultDiv);
+          lucide.createIcons();
+        } else if (status === "error") {
+          statusText.className = "text-[10px] text-red-500 mt-1 font-bold";
+          statusText.textContent = extra;
+          bar.classList.add("bg-red-500");
+        }
+      }
+    </script>
+  </body>
+</html>
